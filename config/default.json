@@ -1,7 +1,7 @@
 {
   "botName": "Marvin",
   "telegramBotToken": "",
-  "telegramUserId": ,
+  "telegramUserId": 0,
   "hueHostName": "",
   "hueToken": ""
 }
