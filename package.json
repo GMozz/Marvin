@@ -1,0 +1,21 @@
+{
+  "name": "Marvin",
+  "version": "0.0.1",
+  "description": "A telegram bot that can connect to your Philips Hue lights",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "author": {
+    "name": "Glenn Mosdall"
+  },
+  "license": "GNU GPLv3",
+  "dependencies": {
+    "node-telegram-bot-api": "0.23.3",
+    "node-hue-api": "2.2.0",
+    "colornames": "1.1.1",
+    "hex-to-hsl": "1.0.2",
+    "getconfig": "3.0.0"
+  }
+}
