@@ -16,6 +16,13 @@ MongoClient.connect(url, function(err, mongoDb) {
     console.log("err = " + err);
   } else {
     db = mongoDb;
+
+    //Prepare necessary collections
+    db.createCollection("greetings", {capped:true, size:10000, max:1000, w:1}, function(err, collection) {
+      if (err) {
+        console.log("Error while creating collection greetings: " + err);
+      }
+    });
   }
 });
 
@@ -98,15 +105,19 @@ function getCallbackToSendJson(fromId) {
   };
 }
 
-bot.onText(/\/foo/, function (msg, match){
+bot.onText(/\/foo/, function (msg, match) {
   var fromId = msg.from.id;
 
   if (!isUserAuthorized(fromId)) {
     //Not authorized, return
     return;
   }
+  // var jsonMsg = JSON.stringify(msg, null, 2);
+  // bot.sendMessage(fromId, "msg: " + jsonMsg);
+  // var jsonMatch = JSON.stringify(match, null, 2);
+  // bot.sendMessage(fromId, "match: " + jsonMatch);
 
-  var collection = db.collection('welcomeMessages');
+  var collection = db.collection('greetings');
   // Find some documents
   collection.find({}).toArray(function(err, docs) {
     var json = JSON.stringify(docs, null, 2);
@@ -115,7 +126,52 @@ bot.onText(/\/foo/, function (msg, match){
   });
 });
 
-bot.onText(/\/hue (.+)/, function (msg, match){
+bot.onText(/\/addGreeting (.+)/, function (msg, match) {
+  var fromId = msg.from.id;
+
+  if (!isUserAuthorized(fromId)) {
+    //Not authorized, return
+    return;
+  }
+
+  if (match.length <= 1) {
+    //No message given
+    return;
+  }
+
+  var greeting = match[1];
+  var greetings = db.collection('greetings');
+  greetings.insertOne({message:greeting}, function(err, r) {
+    if (err) {
+      bot.sendMessage(fromId, err);
+    } else if (r.insertedCount === 1) {
+      bot.sendMessage(fromId, "Added greeting: " + greeting);
+    }
+  });
+});
+
+bot.onText(/\/hi/, function(msg, match) {
+  var fromId = msg.from.id;
+
+  if (!isUserAuthorized(fromId)) {
+    //Not authorized, return
+    return;
+  }
+
+  var greetings = db.collection('greetings');
+  greetings.count(function(err, count) {
+    var random = Math.floor(Math.random() * count);
+    greetings.find().skip(random).nextObject(function(err, item) {
+      if(err) {
+        bot.sendMessage(fromId, err);
+      } else {
+        bot.sendMessage(fromId, item.message);
+      }
+    });
+  });
+});
+
+bot.onText(/\/hue (.+)/, function (msg, match) {
   var fromId = msg.from.id;
 
   if (!isUserAuthorized(fromId)) {
