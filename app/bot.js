@@ -3,9 +3,21 @@
 var config = require('getconfig');
 var TelegramBot = require('node-telegram-bot-api');
 var hue = require('node-hue-api');
+var MongoClient = require('mongodb').MongoClient;
 
 // Setup polling way
 var bot = new TelegramBot(config.telegramBotToken, {polling: true});
+
+var url = "mongodb://" + config.mongoDbHostName + ":" + config.mongoDbPort + "\/" + config.mongoDbDatabaseName;
+var db;
+// Use connect method to connect to the Server
+MongoClient.connect(url, function(err, mongoDb) {
+  if (err) {
+    console.log("err = " + err);
+  } else {
+    db = mongoDb;
+  }
+});
 
 // Matches /echo [whatever]
 bot.onText(/\/echo (.+)/, function (msg, match) {
@@ -31,8 +43,10 @@ bot.on('message', function(msg) {
   var fromId = msg.from.id;
   if (!isUserAuthorized(fromId)) {
     bot.sendMessage(fromId, msg.from.first_name + ", communication is not permitted, proceeding is futile!");
+    var json = JSON.stringify(msg, null, 2);
     console.log("Unauthorized user:\n" + JSON.stringify(msg, null, 2));
-    bot.sendMessage(config.telegramUserId, msg.from.first_name + " tried to contact me with username: " + msg.from.username);
+    bot.sendMessage(config.telegramUserId, msg.from.first_name + " tried to contact me with username: " + msg.from.username + "\n" +
+      "message: " + json);
     return;
   }
 });
@@ -84,6 +98,22 @@ function getCallbackToSendJson(fromId) {
   };
 }
 
+bot.onText(/\/foo/, function (msg, match){
+  var fromId = msg.from.id;
+
+  if (!isUserAuthorized(fromId)) {
+    //Not authorized, return
+    return;
+  }
+
+  var collection = db.collection('welcomeMessages');
+  // Find some documents
+  collection.find({}).toArray(function(err, docs) {
+    var json = JSON.stringify(docs, null, 2);
+    console.log(docs);
+    bot.sendMessage(fromId, "docs: " + json);
+  });
+});
 
 bot.onText(/\/hue (.+)/, function (msg, match){
   var fromId = msg.from.id;
@@ -244,9 +274,6 @@ bot.onText(/\/hue (.+)/, function (msg, match){
 
     case "foo":
       bot.sendMessage(fromId, "bar");
-      var test = config.samsung;
-      bot.sendMessage(fromId, "found config " + test);
-      bot.sendMessage(fromId, "found config " + config.apple);
       break;
     default:
       bot.sendMessage(fromId, "Sorry, command nog recognized");

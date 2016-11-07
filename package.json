@@ -16,10 +16,11 @@
     "url": "git+https://github.com/Glenn85/Marvin.git"
   },
   "dependencies": {
-    "node-telegram-bot-api": "0.23.3",
-    "node-hue-api": "2.2.0",
     "colornames": "1.1.1",
+    "getconfig": "3.0.0",
     "hex-to-hsl": "1.0.2",
-    "getconfig": "3.0.0"
+    "mongodb": "^2.2.11",
+    "node-hue-api": "2.2.0",
+    "node-telegram-bot-api": "0.23.3"
   }
 }
