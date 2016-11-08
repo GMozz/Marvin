@@ -1,9 +1,17 @@
 // app/bot.js
 
+/*
+ * External libraries
+ */
 var config = require('getconfig');
 var TelegramBot = require('node-telegram-bot-api');
 var hue = require('node-hue-api');
 var MongoClient = require('mongodb').MongoClient;
+
+/*
+ * Own classes
+ */
+var OnBoarding = require('./onBoarding');
 
 // Setup polling way
 var bot = new TelegramBot(config.telegramBotToken, {polling: true});
@@ -158,17 +166,8 @@ bot.onText(/\/hi/, function(msg, match) {
     return;
   }
 
-  var greetings = db.collection('greetings');
-  greetings.count(function(err, count) {
-    var random = Math.floor(Math.random() * count);
-    greetings.find().skip(random).nextObject(function(err, item) {
-      if(err) {
-        bot.sendMessage(fromId, err);
-      } else {
-        bot.sendMessage(fromId, item.message);
-      }
-    });
-  });
+  var onBoarding = new OnBoarding(db, bot, fromId);
+  onBoarding.sendGreeting();
 });
 
 bot.onText(/\/hue (.+)/, function (msg, match) {
