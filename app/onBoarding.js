@@ -23,6 +23,34 @@ function OnBoarding(mongoDb, telegramBot, telegramUserId) {
 }
 
 /**
+ * Will handle the start procedure with new users
+ */
+OnBoarding.prototype.start = function(user) {
+  var users = db.collection('users');
+  users.count(function(err, count) {
+    if (err) {
+      console.log("Error while counting users: " + err);
+    } else if (count === 0) {
+      //Add user to db - this becomes the owner
+      users.insertOne(user, function(err, result) {
+        if (err) {
+          console.log("Error while adding a user to the db: " + err);
+        } else {
+          if (result.insertedCount !== 1) {
+            console.log("Unexpected result while adding a user to the db, result: " + result);
+          } else {
+            console.log("Successfully added user to the db, result: " + result);
+          }
+        }
+      });
+    } else {
+      console.log("Will be implemented in the future")
+      //TODO: implement the rest of the onboarding process
+    }
+  });
+}
+
+/**
  * Send a greeting to the user
  */
 OnBoarding.prototype.sendGreeting = function() {

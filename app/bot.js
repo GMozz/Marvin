@@ -66,6 +66,9 @@ bot.onText(/\/echo (.+)/, function (msg, match) {
 //   bot.sendPhoto(chatId, photo, {caption: 'Lovely kittens'});
 // });
 
+/**
+ * Will listen to all messages and log any unauthorized users
+ */
 bot.on('message', function(msg) {
   var fromId = msg.from.id;
   isUserAuthorized(fromId, function(err, isAuthenticated) {
@@ -153,9 +156,8 @@ bot.onText(/\/start/, function(msg, match) {
   var fromId = msg.from.id;
   isUserAuthorized(fromId, function(err, isAuthenticated) {
     if (isAuthenticated) {
-      bot.sendMessage(fromId, "authorized");
-    } else {
-    bot.sendMessage(fromId, "not authorized");
+      var onBoarding = new OnBoarding(db, bot, fromId);
+      onBoarding.start(msg.from);
     }
   });
 });
