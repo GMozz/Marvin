@@ -32,6 +32,7 @@ OnBoarding.prototype.start = function(user) {
       console.log("Error while counting users: " + err);
     } else if (count === 0) {
       //Add user to db - this becomes the owner
+      user.authLevel = 0;
       users.insertOne(user, function(err, result) {
         if (err) {
           console.log("Error while adding a user to the db: " + err);

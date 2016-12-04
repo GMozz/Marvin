@@ -38,6 +38,8 @@ MongoClient.connect(url, function(err, mongoDb) {
      * first_name - String
      * last_name - String
      * username - String
+     * Below are the non-telegram fields, customly added for this program
+     * authLevel - Integer, 0 = owner
      */
     db.createCollection("users", {capped:true, size:10000, max:1000, w:1}, function(err, collection) {
       if (err) {
