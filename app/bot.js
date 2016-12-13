@@ -25,7 +25,6 @@ module.exports = Bot;
  * @constructor
  */
 function Bot(mongoDb, getConfig) {
-  console.log("New Marvin Bot");
   db = mongoDb;
   config = getConfig;
   // Setup polling way
@@ -135,8 +134,8 @@ function initBotListeners() {
     var fromId = msg.from.id;
     isUserAuthorized(fromId, function(err, isAuthenticated) {
       if (isAuthenticated) {
-        var onBoarding = new OnBoarding(db, bot, fromId);
-        onBoarding.start(msg.from);
+        var onBoarding = new OnBoarding(db, bot, msg.from);
+        onBoarding.start();
       }
     });
   });
@@ -202,7 +201,7 @@ function initBotListeners() {
 
     isUserAuthorized(fromId, function(err, isAuthenticated) {
       if (isAuthenticated) {
-        var onBoarding = new OnBoarding(db, bot, fromId);
+        var onBoarding = new OnBoarding(db, bot, msg.from);
         onBoarding.sendGreeting();
       }
     });

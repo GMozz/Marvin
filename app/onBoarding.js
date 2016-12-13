@@ -2,7 +2,7 @@
 
 var db;
 var bot;
-var userId;
+var user;
 
 /**
  * Expose OnBoarding
@@ -13,13 +13,13 @@ module.exports = OnBoarding;
  *
  * @param {Db} db
  * @param {TelegramBot} bot
- * @param {String} userId
+ * @param {TelegramUser} telegramUser
  * @constructor
  */
-function OnBoarding(mongoDb, telegramBot, telegramUserId) {
+function OnBoarding(mongoDb, telegramBot, telegramUser) {
   db = mongoDb;
   bot = telegramBot;
-  userId = telegramUserId;
+  user = telegramUser;
 }
 
 /**
@@ -51,6 +51,10 @@ OnBoarding.prototype.start = function(user) {
   });
 }
 
+OnBoarding.prototype.processUnauthorizedMessage = function() {
+
+}
+
 /**
  * Send a greeting to the user
  */
@@ -65,9 +69,9 @@ OnBoarding.prototype.sendGreeting = function() {
     var random = Math.floor(Math.random() * count);
     greetings.find().skip(random).nextObject(function(err, item) {
       if(err) {
-        bot.sendMessage(userId, err);
+        bot.sendMessage(user.id, err);
       } else {
-        bot.sendMessage(userId, item.message);
+        bot.sendMessage(user.id, item.message);
       }
     });
   });
