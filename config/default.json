@@ -2,8 +2,10 @@
   "botName": "Marvin",
   "telegramBotToken": "",
   "telegramUserId": 0,
+
   "hueHostName": "",
   "hueToken": "",
+  
   "mongoDbHostName": "127.0.0.1",
   "mongoDbPort": "27017",
   "mongoDbDatabaseName": ""

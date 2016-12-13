@@ -57,6 +57,11 @@ OnBoarding.prototype.start = function(user) {
 OnBoarding.prototype.sendGreeting = function() {
   var greetings = db.collection('greetings');
   greetings.count(function(err, count) {
+
+    if (count <= 0) {
+      //There are no greetings
+      return;
+    }
     var random = Math.floor(Math.random() * count);
     greetings.find().skip(random).nextObject(function(err, item) {
       if(err) {
