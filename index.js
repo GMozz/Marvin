@@ -1,3 +1,3 @@
 // index.js
 
-require('./app/bot');
+require('./app/main');
