@@ -62,12 +62,13 @@ function isUserAuthorized(id, cb) {
       console.log(errorMessage);
       cb(errorMessage, false);
     } else if (count > 0) {
-      users.find({"id":id}, function(err, item) {
+      users.findOne({"id":id}, function(err, item) {
         if (err) {
           var errorMessage = "Error while finding authenticated users: " + err;
           console.log(errorMessage);
           cb(errorMessage, false);
-        } else if (item) {
+        } else if (item && (item.authLevel === 1 || item.authLevel === 2)) {
+          //0 = not yet processed, 1 = owner, 2 = allowed user, 3 = blocked user
           cb(null, true);
         } else {
           cb(null, false);
@@ -124,10 +125,79 @@ function initBotListeners() {
         // bot.sendMessage(fromId, msg.from.first_name + ", communication is not permitted, proceeding is futile!");
         var json = JSON.stringify(msg, null, 2);
         console.log("Unauthorized user:\n" + JSON.stringify(msg, null, 2));
-        bot.sendMessage(config.telegramUserId, msg.from.first_name + " " + msg.from.last_name + " tried to contact me with username: " + msg.from.username + "\n" +
-          "message: " + json);
+        // bot.sendMessage(config.telegramUserId, msg.from.first_name + " " + msg.from.last_name + " tried to contact me with username: " + msg.from.username + "\n" +
+        //   "message: " + json);
+
+        var onBoarding = new OnBoarding(db, bot, msg.from);
+        onBoarding.processUnauthorizedMessage(msg);
       }
     });
+  });
+
+  bot.on('callback_query', function(msg) {
+    var fromId = msg.from.id;
+    isUserAuthorized(fromId, function(err, isAuthenticated) {
+      if (isAuthenticated) {
+        var json = JSON.stringify(msg, null, 2);
+        console.log("callback_query:\n" + JSON.stringify(msg, null, 2));
+        /*
+         * Expecting data in the format '123456 2' or '123456 3'
+         * where the first int is de telegram user id and
+         * the second int means 2 = allowed user, 3 = blocked user
+         */
+        var dataArray = msg.data.split(' ');
+        if (dataArray.length !== 2) {
+          //Weird... it should be 2, let's bail out...
+          return;
+        }
+
+        var users = db.collection('users');
+        var userId = parseInt(dataArray[0]);
+        var authLevel = parseInt(dataArray[1]);
+
+        users.findOne({'id':userId}, function(err, user) {
+          if (err) {
+            bot.answerCallbackQuery(msg.id, 'An error occured while trying to find user with id: ' + userId);
+            return;
+          }
+          //Only update the 'authLevel'
+          users.updateOne({'id':userId}, {$set:{'authLevel':authLevel}}, function(err, result) {
+
+              var json = JSON.stringify(result, null, 2);
+              console.log('updateOne: ' + json)
+              console.log('result = ' + result);
+              console.log('result.ok = ' + result.result.ok);
+            var callbackText;
+            if (err) {
+              callbackText = 'Error while updating user with id ' + user.first_name;
+            } else if (result && result.result && result.result.ok === 1) {
+              if (result.result.nModified === 0) {
+                callbackText = 'No changes occured to ' + user.first_name;
+              } else if (result.result.nModified === 1) {
+                callbackText = 'Changed authentication level of ' + user.first_name + ' to ';
+                if (authLevel === 2) {
+                  callbackText += 'allowed';
+                } else if (authLevel === 3) {
+                  callbackText += 'blocked';
+                } else {
+                  callbackText += 'level ' + authLevel;
+                }
+              } else {
+                callbackText = 'It shouldn\'t be possible but multiple users were updated, including ' + user.first_name;
+              }
+            } else {
+              callbackText = 'No error while updating ' + user.first_name +
+                ', but not ok either, weird...';
+            }
+
+            bot.answerCallbackQuery(msg.id, callbackText);
+          });
+        });
+      } else {
+        bot.answerCallbackQuery(msg.id, 'You\'re not authorized to perform this action');
+      }
+    });
+
   });
 
   bot.onText(/\/start/, function(msg, match) {
