@@ -160,6 +160,11 @@ function initBotListeners() {
             bot.answerCallbackQuery(msg.id, 'An error occured while trying to find user with id: ' + userId);
             return;
           }
+
+          if (!user) {
+            bot.answerCallbackQuery(msg.id, 'Couldn\'t find user with id: ' + userId);
+            return;
+          }
           //Only update the 'authLevel'
           users.updateOne({'id':userId}, {$set:{'authLevel':authLevel}}, function(err, result) {
 
