@@ -134,6 +134,9 @@ function initBotListeners() {
     });
   });
 
+  /**
+   * Listening for callback queries that can be sent in the OnBoarding class
+   */
   bot.on('callback_query', function(msg) {
     var fromId = msg.from.id;
     isUserAuthorized(fromId, function(err, isAuthenticated) {
@@ -165,6 +168,13 @@ function initBotListeners() {
             bot.answerCallbackQuery(msg.id, 'Couldn\'t find user with id: ' + userId);
             return;
           }
+
+          //This shouldn't be possible, but just to be sure that the owner can not lose it's privileges
+          if (user.authLevel === 1) {
+            bot.answerCallbackQuery(msg.id, 'Making changes to the owner isn\'t allowed!');
+            return;
+          }
+
           //Only update the 'authLevel'
           users.updateOne({'id':userId}, {$set:{'authLevel':authLevel}}, function(err, result) {
 
