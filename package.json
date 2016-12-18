@@ -21,6 +21,6 @@
     "hex-to-hsl": "1.0.2",
     "mongodb": "^2.2.11",
     "node-hue-api": "2.2.0",
-    "node-telegram-bot-api": "0.23.3"
+    "node-telegram-bot-api": "0.24.0"
   }
 }
