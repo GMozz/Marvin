@@ -53,7 +53,8 @@ function hexToRgb(hex) {
 /**
  * Check authorization of the user
  */
-function isUserAuthorized(id, cb) {
+function isMessageAuthorized(msg, cb) {
+  var fromId = msg.from.id;
   var users = db.collection('users');
 
   users.count(function(err, count) {
@@ -62,7 +63,7 @@ function isUserAuthorized(id, cb) {
       console.log(errorMessage);
       cb(errorMessage, false);
     } else if (count > 0) {
-      users.findOne({"id":id}, function(err, item) {
+      users.findOne({"id":fromId}, function(err, item) {
         if (err) {
           var errorMessage = "Error while finding authenticated users: " + err;
           console.log(errorMessage);
@@ -76,7 +77,7 @@ function isUserAuthorized(id, cb) {
       });
     } else {
       //Fallback to using the user id of the config file
-      if (id == config.telegramUserId) {
+      if (fromId === config.telegramUserId) {
         cb(null, true);
       } else {
         cb(null, false);
@@ -119,8 +120,7 @@ function initBotListeners() {
    * Will listen to all messages and log any unauthorized users
    */
   bot.on('message', function(msg) {
-    var fromId = msg.from.id;
-    isUserAuthorized(fromId, function(err, isAuthenticated) {
+    isMessageAuthorized(msg, function(err, isAuthenticated) {
       if (!isAuthenticated) {
         // bot.sendMessage(fromId, msg.from.first_name + ", communication is not permitted, proceeding is futile!");
         var json = JSON.stringify(msg, null, 2);
@@ -138,8 +138,7 @@ function initBotListeners() {
    * Listening for callback queries that can be sent in the OnBoarding class
    */
   bot.on('callback_query', function(msg) {
-    var fromId = msg.from.id;
-    isUserAuthorized(fromId, function(err, isAuthenticated) {
+    isMessageAuthorized(msg, function(err, isAuthenticated) {
       if (isAuthenticated) {
         var json = JSON.stringify(msg, null, 2);
         console.log("callback_query:\n" + JSON.stringify(msg, null, 2));
@@ -216,8 +215,7 @@ function initBotListeners() {
   });
 
   bot.onText(/\/start/, function(msg, match) {
-    var fromId = msg.from.id;
-    isUserAuthorized(fromId, function(err, isAuthenticated) {
+    isMessageAuthorized(msg, function(err, isAuthenticated) {
       if (isAuthenticated) {
         var onBoarding = new OnBoarding(db, bot, msg.from);
         onBoarding.start();
@@ -228,7 +226,7 @@ function initBotListeners() {
   // Matches /echo [whatever]
   bot.onText(/\/echo (.+)/, function (msg, match) {
     var fromId = msg.from.id;
-    isUserAuthorized(fromId, function(err, isAuthenticated) {
+    isMessageAuthorized(msg, function(err, isAuthenticated) {
       if (isAuthenticated) {
         var resp = match[1];
         bot.sendMessage(fromId, resp);
@@ -239,7 +237,7 @@ function initBotListeners() {
   bot.onText(/\/foo/, function (msg, match) {
     var fromId = msg.from.id;
 
-    isUserAuthorized(fromId, function(err, isAuthenticated) {
+    isMessageAuthorized(msg, function(err, isAuthenticated) {
       if (isAuthenticated) {
         // var jsonMsg = JSON.stringify(msg, null, 2);
         // bot.sendMessage(fromId, "msg: " + jsonMsg);
@@ -261,7 +259,7 @@ function initBotListeners() {
   bot.onText(/\/addGreeting (.+)/, function (msg, match) {
     var fromId = msg.from.id;
 
-    isUserAuthorized(fromId, function(err, isAuthenticated) {
+    isMessageAuthorized(msg, function(err, isAuthenticated) {
       if (isAuthenticated) {
         if (match.length <= 1) {
           //No message given
@@ -282,9 +280,8 @@ function initBotListeners() {
   });
 
   bot.onText(/\/hi/, function(msg, match) {
-    var fromId = msg.from.id;
 
-    isUserAuthorized(fromId, function(err, isAuthenticated) {
+    isMessageAuthorized(msg, function(err, isAuthenticated) {
       if (isAuthenticated) {
         var onBoarding = new OnBoarding(db, bot, msg.from);
         onBoarding.sendGreeting();
@@ -295,7 +292,7 @@ function initBotListeners() {
   bot.onText(/\/hue (.+)/, function (msg, match) {
     var fromId = msg.from.id;
 
-    isUserAuthorized(fromId, function(err, isAuthenticated) {
+    isMessageAuthorized(msg, function(err, isAuthenticated) {
       if (isAuthenticated) {
         var respArray = match[1].split(" ");
         var resp = respArray[0];
