@@ -54,13 +54,16 @@ function hexToRgb(hex) {
  * Check authorization of the user
  */
 function isMessageAuthorized(msg, cb) {
-  switch(msg.chat.type) {
-    case "private":
+  if (msg.chat) {
+    if (msg.chat.type === 'private') {
       isUserAuthorized(msg, cb);
-      break;
-    default:
+    } else {
       //case for everything else like 'group', 'supergroup' and what else...
       isGroupAuthorized(msg, cb);
+    }
+  } else {
+    //Callback queries have no msg.chat for instance
+    isUserAuthorized(msg, cb);
   }
 }
 
@@ -215,33 +218,53 @@ function initBotListeners() {
    * Listening for callback queries that can be sent in the OnBoarding class
    */
   bot.on('callback_query', function(msg) {
+    // var json = JSON.stringify(msg, null, 2);
+    // console.log("callback_query:\n" + JSON.stringify(msg, null, 2));
+
     isMessageAuthorized(msg, function(err, isAuthenticated) {
-      if (isAuthenticated) {
-        var json = JSON.stringify(msg, null, 2);
-        console.log("callback_query:\n" + JSON.stringify(msg, null, 2));
-        /*
-         * Expecting data in the format '123456 2' or '123456 3'
-         * where the first int is de telegram user id and
-         * the second int means 2 = allowed user, 3 = blocked user
-         */
-        var dataArray = msg.data.split(' ');
-        if (dataArray.length !== 2) {
-          //Weird... it should be 2, let's bail out...
-          return;
-        }
+      if (err) {
+        bot.answerCallbackQuery(msg.id, 'Something went terrible wrong, I\'m sorry for the inconvenience...');
+        return
+      }
 
+      if (!isAuthenticated) {
+        bot.answerCallbackQuery(msg.id, 'You\'re not authorized to perform this action');
+        return;
+      }
+
+      /*
+       * Expecting data in the format '0 123456 2' or '1 123456 3'
+       * where the first int indicates whether this is a private (0) or group (1) chat,
+       * the second int is de telegram user or group id and
+       * the third int means for users:
+       * 2 = allowed user
+       * 3 = blocked user
+       * and for groups:
+       * 1 = actively participate
+       * 2 = passively participate
+       * 3 = leave group
+       */
+      var dataArray = msg.data.split(' ');
+      if (dataArray.length !== 3) {
+        //Weird... it should be 3, let's bail out...
+        return;
+      }
+
+      var privateOrGroup = parseInt(dataArray[0]);
+      var id = parseInt(dataArray[1]);
+      var authLevel = parseInt(dataArray[2]);
+
+      if (privateOrGroup === 0) {
+        //Private chat
         var users = db.collection('users');
-        var userId = parseInt(dataArray[0]);
-        var authLevel = parseInt(dataArray[1]);
-
-        users.findOne({'id':userId}, function(err, user) {
+        users.findOne({'id':id}, function(err, user) {
           if (err) {
-            bot.answerCallbackQuery(msg.id, 'An error occured while trying to find user with id: ' + userId);
+            bot.answerCallbackQuery(msg.id, 'An error occured while trying to find user with id: ' + id);
             return;
           }
 
           if (!user) {
-            bot.answerCallbackQuery(msg.id, 'Couldn\'t find user with id: ' + userId);
+            bot.answerCallbackQuery(msg.id, 'Couldn\'t find user with id: ' + id);
             return;
           }
 
@@ -252,7 +275,7 @@ function initBotListeners() {
           }
 
           //Only update the 'authLevel'
-          users.updateOne({'id':userId}, {$set:{'authLevel':authLevel}}, function(err, result) {
+          users.updateOne({'id':id}, {$set:{'authLevel':authLevel}}, function(err, result) {
             var callbackText;
             if (err) {
               callbackText = 'Error while updating user with id ' + user.first_name;
@@ -279,8 +302,63 @@ function initBotListeners() {
             bot.answerCallbackQuery(msg.id, callbackText);
           });
         });
+      } else if (privateOrGroup === 1) {
+        //Group chat
+        var groups = db.collection('groups');
+        groups.findOne({'id':id}, function(err, group) {
+          if (err) {
+            bot.answerCallbackQuery(msg.id, 'An error occured while trying to find group with id: ' + id);
+            return;
+          }
+
+          if (!group) {
+            bot.answerCallbackQuery(msg.id, 'Couldn\'t find group with id: ' + id);
+            return;
+          }
+
+          //Only update the 'authLevel'
+          groups.updateOne({'id':id}, {$set:{'authLevel':authLevel}}, function(err, result) {
+            var callbackText;
+            if (err) {
+              callbackText = 'Error while updating group with id ' + group.title;
+            } else if (result && result.result && result.result.ok === 1) {
+              if (result.result.nModified === 0) {
+                callbackText = 'No changes occured to ' + group.title;
+              } else if (result.result.nModified === 1) {
+                callbackText = 'Changed participation level of ' + group.title + ' to ';
+                if (authLevel === 1) {
+                  callbackText += 'actively participate';
+                } else if (authLevel === 2) {
+                  callbackText += 'passively participate';
+                } else if (authLevel === 3) {
+                  callbackText += 'leave group';
+
+                  bot.leaveChat(group.id);
+                  var groupName;
+                  if (group.title) {
+                    groupName = group.title;
+                  } else {
+                    groupName = group.id;
+                  }
+                  console.log('Leaving group \'' + groupName + '\'');
+
+                } else {
+                  callbackText += 'level ' + authLevel;
+                }
+              } else {
+                callbackText = 'It shouldn\'t be possible but multiple groups were updated, including ' + group.title;
+              }
+            } else {
+              callbackText = 'No error while updating ' + group.title +
+                ', but not ok either, weird...';
+            }
+
+            bot.answerCallbackQuery(msg.id, callbackText);
+          });
+        });
       } else {
-        bot.answerCallbackQuery(msg.id, 'You\'re not authorized to perform this action');
+        //What the hell... ?!
+        bot.answerCallbackQuery(msg.id, 'Something went terrible wrong, I\'m sorry for the inconvenience...');
       }
     });
 

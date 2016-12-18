@@ -61,16 +61,16 @@ OnBoarding.prototype.start = function() {
 OnBoarding.prototype.processUnauthorizedMessage = function(msg) {
   switch(msg.chat.type) {
     case "private":
-      findOwner(processUnauthorizedPrivateMessage);
+      findOwner(msg, processUnauthorizedPrivateMessage);
       break;
     default:
       //case for everything else like 'group', 'supergroup' and what else...
       //TODO: implement support for group chats and what else...
-      console.log("group message");
+      findOwner(msg, processUnauthorizedGroupMessage);
   }
 }
 
-function processUnauthorizedPrivateMessage(err, owner) {
+function processUnauthorizedPrivateMessage(err, owner, msg) {
   if(err) {
     var errorMessage = "Error while processing unauthorized private message: " + err;
     console.log(errorMessage);
@@ -87,18 +87,18 @@ function processUnauthorizedPrivateMessage(err, owner) {
   //2 = allowed user, 3 = blocked user
   var inlineKeyboardButtonLeft = {};
   inlineKeyboardButtonLeft.text = 'Allow';
-  inlineKeyboardButtonLeft.callback_data = user.id + ' 2';
+  inlineKeyboardButtonLeft.callback_data = '0 ' + user.id + ' 2';
 
   var inlineKeyboardButtonRight = {};
   inlineKeyboardButtonRight.text = 'Block';
-  inlineKeyboardButtonRight.callback_data = user.id + ' 3';
+  inlineKeyboardButtonRight.callback_data = '0 ' + user.id + ' 3';
 
   var options = {};
   options.reply_markup = {};
   options.reply_markup.inline_keyboard =
     [[inlineKeyboardButtonLeft, inlineKeyboardButtonRight]];
 
-  var message = ' is contacting me, is he allowed?';
+  var message = ' is contacting me, are they allowed?';
   if (user.username) {
     message = ' (@' + user.username + ')' + message;
   }
@@ -114,7 +114,7 @@ function processUnauthorizedPrivateMessage(err, owner) {
 
 function storeUser() {
   var users = db.collection('users');
-  //authLevel 0 means this user hasn't been processed properly
+  //authLevel 0 means this user hasn't been processed yet
   user.authLevel = 0;
   user._id = user.id;
   //This will give an error when the user already exists
@@ -132,10 +132,85 @@ function storeUser() {
   });
 }
 
-function findOwner(cb) {
+function processUnauthorizedGroupMessage(err, owner, msg) {
+  if(err) {
+    var errorMessage = "Error while processing unauthorized private message: " + err;
+    console.log(errorMessage);
+    return;
+  }
+
+  if (!owner) {
+    console.log("No owner found in the DB, please add one");
+    return;
+  }
+
+  console.log("processUnauthorizedGroupMessage");
+  var json = JSON.stringify(msg, null, 2);
+  console.log(json);
+
+  storeGroup(msg.chat);
+
+  /*
+   * 1 = Actively participate group
+   * 2 = Passively participate group
+   * 3 = Leave group
+   */
+  var inlineKeyboardButtonLeft = {};
+  inlineKeyboardButtonLeft.text = 'Actively';
+  inlineKeyboardButtonLeft.callback_data = '1 ' + msg.chat.id + ' 1';
+
+  var inlineKeyboardButtonMiddle = {};
+  inlineKeyboardButtonMiddle.text = 'Passively';
+  inlineKeyboardButtonMiddle.callback_data = '1 ' + msg.chat.id + ' 2';
+
+  var inlineKeyboardButtonRight = {};
+  inlineKeyboardButtonRight.text = 'Leave';
+  inlineKeyboardButtonRight.callback_data = '1 ' + msg.chat.id + ' 3';
+
+  var options = {};
+  options.reply_markup = {};
+  options.reply_markup.inline_keyboard =
+    [[inlineKeyboardButtonLeft, inlineKeyboardButtonMiddle, inlineKeyboardButtonRight]];
+
+  var message = ' added me to the group \'' + msg.chat.title + '\', how should I participate?';
+  if (user.username) {
+    message = ' (@' + user.username + ')' + message;
+  }
+  if (user.last_name) {
+    message = ' ' + user.last_name + message;
+  }
+  //The first_name is not optional
+  message = user.first_name + message;
+
+  bot.sendMessage(owner.id, message, options);
+}
+
+function storeGroup(group) {
+  var groups = db.collection('groups');
+  //authLevel 0 means this group hasn't been processed yet
+  group.authLevel = 0;
+  group._id = group.id;
+  //This will give an error when the group already exists
+  groups.insertOne(group, function(err, result) {
+    //This might result in an error when the group already exists, but that's okay
+    // if (err) {
+    //   console.log("Error while adding a group to the db: " + err);
+    // } else {
+    //   if (result.insertedCount !== 1) {
+    //     console.log("Unexpected result while adding a group to the db, result: " + result);
+    //   } else {
+    //     console.log("Successfully added group to the db, result: " + result);
+    //   }
+    // }
+  });
+}
+
+function findOwner(msg, cb) {
   var users = db.collection('users');
   //Find the one owner
-  users.findOne({'authLevel':1}, cb);
+  users.findOne({'authLevel':1}, function(err, result) {
+    cb(err, result, msg);
+  });
 }
 
 /**
