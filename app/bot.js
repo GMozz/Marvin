@@ -54,34 +54,120 @@ function hexToRgb(hex) {
  * Check authorization of the user
  */
 function isMessageAuthorized(msg, cb) {
+  switch(msg.chat.type) {
+    case "private":
+      isUserAuthorized(msg, cb);
+      break;
+    default:
+      //case for everything else like 'group', 'supergroup' and what else...
+      isGroupAuthorized(msg, cb);
+  }
+}
+
+function isUserAuthorized(msg, cb) {
   var fromId = msg.from.id;
+  //Assumes all messages forwarded to this function are private messages
   var users = db.collection('users');
 
-  users.count(function(err, count) {
+  users.findOne({"id":fromId}, function(err, item) {
     if (err) {
-      var errorMessage = "Error while counting authenticated users: " + err;
+      var errorMessage = "Error while finding authenticated user: " + err;
       console.log(errorMessage);
       cb(errorMessage, false);
-    } else if (count > 0) {
-      users.findOne({"id":fromId}, function(err, item) {
-        if (err) {
-          var errorMessage = "Error while finding authenticated users: " + err;
-          console.log(errorMessage);
-          cb(errorMessage, false);
-        } else if (item && (item.authLevel === 1 || item.authLevel === 2)) {
-          //0 = not yet processed, 1 = owner, 2 = allowed user, 3 = blocked user
-          cb(null, true);
-        } else {
-          cb(null, false);
-        }
-      });
-    } else {
+      return;
+    }
+
+    if (!item) {
       //Fallback to using the user id of the config file
       if (fromId === config.telegramUserId) {
         cb(null, true);
       } else {
-        cb(null, false);
+        //User doesn't exist in db yet, let's start the onboarding process
+        var onBoarding = new OnBoarding(db, bot, msg.from);
+        onBoarding.processUnauthorizedMessage(msg);
       }
+      return;
+    }
+
+    switch(item.authLevel) {
+      case 0:
+        //This user already exists in the db, but is not yet processed by the owner
+        //TODO: should we send a reminder to the owner every 24hours when there's an unprocessed user?
+        break;
+      case 1:
+        //This is the owner
+        cb(null, true);
+        break;
+      case 2:
+        //This is an authorized user
+        cb(null, true);
+        break;
+      case 3:
+        //Ignore this user, preferably block this user, but that's not supported by Telegram atm.
+        //TODO: Regularly check whether Telegram made it possible to block users or leave private chats
+
+        var message = '';
+        if (item.username) {
+          message = ' (@' + item.username + ')';
+        }
+        if (item.last_name) {
+          message = ' ' + item.last_name + message;
+        }
+        //The first_name is not optional
+        message = 'Received message from blocked user: ' + fromId + ' - ' + item.first_name + message;
+        console.log(message);
+        break;
+      default:
+        //This shouldn't be possible
+        cb(null, false);
+        break;
+    }
+  });
+}
+
+function isGroupAuthorized(msg, cb) {
+  var groups = db.collection('groups');
+  //Assumes all messages forwarded to this function are group messages
+  var groupId = msg.chat.id;
+  groups.findOne({'id':groupId}, function(err, item) {
+    if (err) {
+      var errorMessage = "Error while finding authenticated group: " + err;
+      console.log(errorMessage);
+      cb(errorMessage, false);
+      return;
+    }
+
+    if (!item) {
+      //Group doesn't exist in db yet, let's start the onboarding process
+      var onBoarding = new OnBoarding(db, bot, msg.from);
+      onBoarding.processUnauthorizedMessage(msg);
+      return;
+    }
+
+    switch(item.authLevel) {
+      case 0:
+        //This group already exists in the db, but is not yet processed by the owner
+        //TODO: should we send a reminder to the owner every 24hours when there's an unprocessed group?
+        break;
+      case 1:
+        //Participate actively in this group, so messages from all users will be processed
+        cb(null, true);
+        break;
+      case 2:
+        //Participate passively in this group, so only process messages from authorized users
+        isUserAuthorized(msg, cb);
+        break;
+      case 3:
+        //Leave this group, no further callback is necessary
+        bot.leaveChat(item.id);
+        var groupName;
+        if (item.title) {
+          groupName = item.title;
+        } else {
+          groupName = item.id;
+        }
+        console.log('Leaving group \'' + groupName + '\'');
+        break;
     }
   });
 }
@@ -121,16 +207,7 @@ function initBotListeners() {
    */
   bot.on('message', function(msg) {
     isMessageAuthorized(msg, function(err, isAuthenticated) {
-      if (!isAuthenticated) {
-        // bot.sendMessage(fromId, msg.from.first_name + ", communication is not permitted, proceeding is futile!");
-        var json = JSON.stringify(msg, null, 2);
-        console.log("Unauthorized user:\n" + JSON.stringify(msg, null, 2));
-        // bot.sendMessage(config.telegramUserId, msg.from.first_name + " " + msg.from.last_name + " tried to contact me with username: " + msg.from.username + "\n" +
-        //   "message: " + json);
-
-        var onBoarding = new OnBoarding(db, bot, msg.from);
-        onBoarding.processUnauthorizedMessage(msg);
-      }
+      //No action necessary
     });
   });
 
@@ -176,11 +253,6 @@ function initBotListeners() {
 
           //Only update the 'authLevel'
           users.updateOne({'id':userId}, {$set:{'authLevel':authLevel}}, function(err, result) {
-
-              var json = JSON.stringify(result, null, 2);
-              console.log('updateOne: ' + json)
-              console.log('result = ' + result);
-              console.log('result.ok = ' + result.result.ok);
             var callbackText;
             if (err) {
               callbackText = 'Error while updating user with id ' + user.first_name;
