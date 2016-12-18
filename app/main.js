@@ -36,6 +36,7 @@ MongoClient.connect(url, function(err, mongoDb) {
      * first_name - String
      * last_name - String
      * username - String
+     *
      * Below are the non-telegram fields, customly added for this program
      * authLevel - Integer, 0 = not yet processed, 1 = owner, 2 = allowed user, 3 = blocked user
      */
@@ -44,6 +45,23 @@ MongoClient.connect(url, function(err, mongoDb) {
         console.log("Error while creating collection users: " + err);
       }
     });
+
+    /*
+     * Based on the Telegram chat - https://core.telegram.org/bots/api#chat
+     * id - Integer
+     * type - String
+     * title - String
+     * all_members_are_administrators - Boolean
+     *
+     * Below are the non-telegram fields, customly added for this program
+     * authLevel - Integer, 0 = not yet processed, 1 = actively participate in group,
+     * 2 = passively participate in group, 3 = leave group
+     */
+    db.createCollection("groups", {size:10000, max:1000, w:1}, function(err, collection) {
+      if (err) {
+        console.log("Error while creating collection groups: " + err);
+      }
+    })
 
     bot = new Bot(db, config);
   }
