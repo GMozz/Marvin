@@ -325,7 +325,7 @@ function initBotListeners() {
               if (result.result.nModified === 0) {
                 callbackText = 'No changes occured to ' + group.title;
               } else if (result.result.nModified === 1) {
-                callbackText = 'Changed participation level of ' + group.title + ' to ';
+                callbackText = 'Changed participation level of \'' + group.title + '\' to ';
                 if (authLevel === 1) {
                   callbackText += 'actively participate';
                 } else if (authLevel === 2) {
