@@ -216,7 +216,7 @@ function findOwner(msg, cb) {
 /**
  * Send a greeting to the user
  */
-OnBoarding.prototype.sendGreeting = function() {
+OnBoarding.prototype.sendGreeting = function(msg) {
   var greetings = db.collection('greetings');
   greetings.count(function(err, count) {
 
@@ -227,9 +227,9 @@ OnBoarding.prototype.sendGreeting = function() {
     var random = Math.floor(Math.random() * count);
     greetings.find().skip(random).nextObject(function(err, item) {
       if(err) {
-        bot.sendMessage(user.id, err);
+        bot.sendMessage(msg.chat.id, err);
       } else {
-        bot.sendMessage(user.id, item.message);
+        bot.sendMessage(msg.chat.id, item.message);
       }
     });
   });

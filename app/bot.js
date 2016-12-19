@@ -68,11 +68,11 @@ function isMessageAuthorized(msg, cb) {
 }
 
 function isUserAuthorized(msg, cb) {
-  var fromId = msg.from.id;
+  var userId = msg.from.id;
   //Assumes all messages forwarded to this function are private messages
   var users = db.collection('users');
 
-  users.findOne({"id":fromId}, function(err, item) {
+  users.findOne({"id":userId}, function(err, item) {
     if (err) {
       var errorMessage = "Error while finding authenticated user: " + err;
       console.log(errorMessage);
@@ -82,7 +82,7 @@ function isUserAuthorized(msg, cb) {
 
     if (!item) {
       //Fallback to using the user id of the config file
-      if (fromId === config.telegramUserId) {
+      if (userId === config.telegramUserId) {
         cb(null, true);
       } else {
         //User doesn't exist in db yet, let's start the onboarding process
@@ -117,7 +117,7 @@ function isUserAuthorized(msg, cb) {
           message = ' ' + item.last_name + message;
         }
         //The first_name is not optional
-        message = 'Received message from blocked user: ' + fromId + ' - ' + item.first_name + message;
+        message = 'Received message from blocked user: ' + userId + ' - ' + item.first_name + message;
         console.log(message);
         break;
       default:
@@ -375,31 +375,30 @@ function initBotListeners() {
 
   // Matches /echo [whatever]
   bot.onText(/\/echo (.+)/, function (msg, match) {
-    var fromId = msg.from.id;
     isMessageAuthorized(msg, function(err, isAuthenticated) {
       if (isAuthenticated) {
+        var chatId = msg.chat.id;
         var resp = match[1];
-        bot.sendMessage(fromId, resp);
+        bot.sendMessage(chatId, resp);
       }
     });
   });
 
   bot.onText(/\/foo/, function (msg, match) {
-    var fromId = msg.from.id;
-
     isMessageAuthorized(msg, function(err, isAuthenticated) {
       if (isAuthenticated) {
+        var chatId = msg.chat.id;
         // var jsonMsg = JSON.stringify(msg, null, 2);
-        // bot.sendMessage(fromId, "msg: " + jsonMsg);
+        // bot.sendMessage(chatId, "msg: " + jsonMsg);
         // var jsonMatch = JSON.stringify(match, null, 2);
-        // bot.sendMessage(fromId, "match: " + jsonMatch);
+        // bot.sendMessage(chatId, "match: " + jsonMatch);
 
         var collection = db.collection('greetings');
         // Find some documents
         collection.find({}).toArray(function(err, docs) {
           var json = JSON.stringify(docs, null, 2);
           console.log(docs);
-          bot.sendMessage(fromId, "docs: " + json);
+          bot.sendMessage(chatId, "docs: " + json);
         });
       }
     });
@@ -407,10 +406,9 @@ function initBotListeners() {
   });
 
   bot.onText(/\/addGreeting (.+)/, function (msg, match) {
-    var fromId = msg.from.id;
-
     isMessageAuthorized(msg, function(err, isAuthenticated) {
       if (isAuthenticated) {
+        var chatId = msg.chat.id;
         if (match.length <= 1) {
           //No message given
           return;
@@ -420,9 +418,9 @@ function initBotListeners() {
         var greetings = db.collection('greetings');
         greetings.insertOne({message:greeting}, function(err, r) {
           if (err) {
-            bot.sendMessage(fromId, err);
+            bot.sendMessage(chatId, err);
           } else if (r.insertedCount === 1) {
-            bot.sendMessage(fromId, "Added greeting: " + greeting);
+            bot.sendMessage(chatId, "Added greeting: " + greeting);
           }
         });
       }
@@ -430,20 +428,19 @@ function initBotListeners() {
   });
 
   bot.onText(/\/hi/, function(msg, match) {
-
     isMessageAuthorized(msg, function(err, isAuthenticated) {
       if (isAuthenticated) {
         var onBoarding = new OnBoarding(db, bot, msg.from);
-        onBoarding.sendGreeting();
+        onBoarding.sendGreeting(msg);
       }
     });
   });
 
   bot.onText(/\/hue (.+)/, function (msg, match) {
-    var fromId = msg.from.id;
 
     isMessageAuthorized(msg, function(err, isAuthenticated) {
       if (isAuthenticated) {
+        var chatId = msg.chat.id;
         var respArray = match[1].split(" ");
         var resp = respArray[0];
         // console.log("msg = " + JSON.stringify(msg, null, 2));
@@ -455,7 +452,7 @@ function initBotListeners() {
             hue.nupnpSearch(function(err, result) {
                 if (err) throw err;
                 var bridges = JSON.stringify(result);
-                bot.sendMessage(fromId, bridges);
+                bot.sendMessage(chatId, bridges);
             });
             break;
 
@@ -464,22 +461,22 @@ function initBotListeners() {
             var api = new HueApi();
 
             api.registerUser(config.hueHostName, config.botName,
-              getCallbackToSendJson(fromId));
+              getCallbackToSendJson(chatId));
             break;
 
           case "version":
             var api = getHueApi();
-            api.getVersion(getCallbackToSendJson(fromId));
+            api.getVersion(getCallbackToSendJson(chatId));
             break;
 
           case "config":
             var api = getHueApi();
-            api.getConfig(getCallbackToSendJson(fromId));
+            api.getConfig(getCallbackToSendJson(chatId));
             break;
 
           case "lights":
             var api = getHueApi();
-            api.getLights(getCallbackToSendJson(fromId));
+            api.getLights(getCallbackToSendJson(chatId));
             break;
 
           case "lightStatus":
@@ -487,7 +484,7 @@ function initBotListeners() {
 
             var lightId = respArray[1];
             console.log("lightId = " + lightId);
-            api.getLightStatusWithRGB(lightId, getCallbackToSendJson(fromId));
+            api.getLightStatusWithRGB(lightId, getCallbackToSendJson(chatId));
             break;
 
           case "light":
@@ -525,7 +522,7 @@ function initBotListeners() {
             api.setLightState(lightId, newState, function(err, result) {
               console.log("err = " + err + ", result = " + result);
               if (err) {
-                bot.sendMessage(fromId, err.toString());
+                bot.sendMessage(chatId, err.toString());
                 return;
               }
 
@@ -535,13 +532,13 @@ function initBotListeners() {
               } else {
                 response = "Sorry, could not comply";
               }
-              bot.sendMessage(fromId, response);
+              bot.sendMessage(chatId, response);
             });
             break;
 
           case "groups":
             var api = getHueApi();
-            api.getGroups(getCallbackToSendJson(fromId));
+            api.getGroups(getCallbackToSendJson(chatId));
             break;
 
           case "group":
@@ -579,7 +576,7 @@ function initBotListeners() {
             api.setGroupLightState(groupId, newState, function(err, result) {
               console.log("err = " + err + ", result = " + result);
               if (err) {
-                bot.sendMessage(fromId, err.toString());
+                bot.sendMessage(chatId, err.toString());
                 return;
               }
 
@@ -589,15 +586,15 @@ function initBotListeners() {
               } else {
                 response = "Sorry, could not comply";
               }
-              bot.sendMessage(fromId, response);
+              bot.sendMessage(chatId, response);
             });
             break;
 
           case "foo":
-            bot.sendMessage(fromId, "bar");
+            bot.sendMessage(chatId, "bar");
             break;
           default:
-            bot.sendMessage(fromId, "Sorry, command nog recognized");
+            bot.sendMessage(chatId, "Sorry, command nog recognized");
             break;
         }
       }
