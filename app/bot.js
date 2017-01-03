@@ -209,6 +209,11 @@ function initBotListeners() {
    * Will listen to all messages and log any unauthorized users
    */
   bot.on('message', function(msg) {
+    if (msg.text === '/start') {
+      //Don't process the /start command, this breaks the OnBoarding procedure
+      return;
+    }
+
     isMessageAuthorized(msg, function(err, isAuthenticated) {
       //No action necessary
     });
