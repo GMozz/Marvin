@@ -10,6 +10,7 @@ var hue = require('node-hue-api');
  * Own classes
  */
 var OnBoarding = require('./onBoarding');
+var Switch = require('./switch');
 
 var db;
 var config;
@@ -602,6 +603,16 @@ function initBotListeners() {
             bot.sendMessage(chatId, "Sorry, command nog recognized");
             break;
         }
+      }
+    });
+  });
+
+  bot.onText(/\/switch/, function (msg, match) {
+    isMessageAuthorized(msg, function(err, isAuthenticated) {
+      if (isAuthenticated) {
+        var chatId = msg.chat.id;
+        bot.sendMessage(chatId, "Switch called");
+        var serialSwitch = new Switch.SerialSwitch("Yo!");
       }
     });
   });

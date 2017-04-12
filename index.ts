@@ -1,3 +1,3 @@
-// index.js
+// index.ts
 
 require('./app/main');
